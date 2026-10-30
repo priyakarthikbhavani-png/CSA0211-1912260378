@@ -1,0 +1,196 @@
+QUESTION-1
+
+#include <stdio.h>
+int main(void)
+{
+    int price[3]  = {200, 1000, 45};
+    int qty[3]    = {3, 2, 7};
+    int senior[3] = {0, 1, 1};
+
+    printf("---- ORIGINAL (buggy) expression ----\n");
+    for (int i = 0; i < 3; i++) {
+        int total = price[i]*qty[i] - price[i]*qty[i]*15/100*senior[i]
+                    + price[i]*qty[i]*5/100;
+        int net = total > 1000 ? total - 50 : total;
+        printf("Bill %d: price=%d qty=%d senior=%d -> total=%d net=%d\n",
+               i + 1, price[i], qty[i], senior[i], total, net);
+    }
+
+    printf("\n---- CORRECTED calculation ----\n");
+    for (int i = 0; i < 3; i++) {
+        double gross    = (double)price[i] * qty[i];
+        double discount = senior[i] ? gross * 0.15 : 0.0;
+        double taxable  = gross - discount;
+        double tax      = taxable * 0.05;
+        double total    = taxable + tax;
+        double net      = (total > 1000) ? total - 50 : total;
+        printf("Bill %d: gross=%.2f discount=%.2f tax=%.2f total=%.2f net=%.2f\n",
+               i + 1, gross, discount, tax, total, net);
+    }
+
+    printf("\n---- Integer division effect ----\n");
+    printf("15/100 = %d, 5/100 = %d, 315*15/100 = %d (exact 47.25)\n",
+           15/100, 5/100, 315*15/100);
+
+    printf("\n---- count statement ----\n");
+    int count = 5;
+    count = count + 1;   /* well-defined replacement for count = count++ + 1 */
+    printf("count = %d\n", count);
+    return 0;
+}
+
+
+
+OUTPUT
+---- ORIGINAL (buggy) expression ----
+Bill 1: price=200 qty=3 senior=0 -> total=630 net=630
+Bill 2: price=1000 qty=2 senior=1 -> total=1800 net=1750
+Bill 3: price=45 qty=7 senior=1 -> total=283 net=283
+
+---- CORRECTED calculation ----
+Bill 1: gross=600.00 discount=0.00 tax=30.00 total=630.00 net=630.00
+Bill 2: gross=2000.00 discount=300.00 tax=85.00 total=1785.00 net=1735.00
+Bill 3: gross=315.00 discount=47.25 tax=13.39 total=281.14 net=281.14
+
+---- Integer division effect ----
+15/100 = 0, 5/100 = 0, 315*15/100 = 47 (exact 47.25)
+
+---- count statement ----
+count = 6
+
+
+
+
+QUESTION-2
+
+#include <stdio.h>
+
+int calls = 0;
+
+int slow(int id)   { calls++; return id % 10 == 0; }
+int senior(int id) { return id % 4 == 0; }
+int cls(int id)    { return id % 2 == 0; }
+
+int main(void)
+{
+    int N = 1000, eligible, x;
+
+    x = 0; if (0 && ++x) {}  printf("0 && ++x : x = %d\n", x);
+    x = 0; if (1 || ++x) {}  printf("1 || ++x : x = %d\n", x);
+    x = 0; if (0 &  ++x) {}  printf("0 &  ++x : x = %d\n", x);
+
+    calls = 0; eligible = 0;
+    for (int i = 1; i <= N; i++)
+        if ((senior(i) && cls(i)) || slow(i)) eligible++;
+    printf("A: (senior && class) || slow : eligible=%d, slow calls=%d\n", eligible, calls);
+
+    calls = 0; eligible = 0;
+    for (int i = 1; i <= N; i++)
+        if (slow(i) || (senior(i) && cls(i))) eligible++;
+    printf("B: slow || (senior && class) : eligible=%d, slow calls=%d\n", eligible, calls);
+
+    calls = 0; eligible = 0;
+    for (int i = 1; i <= N; i++)
+        if ((senior(i) & cls(i)) | slow(i)) eligible++;
+    printf("C: (senior & class) | slow   : eligible=%d, slow calls=%d\n", eligible, calls);
+
+    calls = 0; eligible = 0;
+    for (int i = 1; i <= N; i++) {
+        if (senior(i)) {
+            if (cls(i)) { eligible++; continue; }
+        }
+        if (slow(i)) eligible++;
+    }
+    printf("D: nested if                 : eligible=%d, slow calls=%d\n", eligible, calls);
+
+    return 0;
+}
+
+
+
+OUTPUT
+0 && ++x : x = 0
+1 || ++x : x = 0
+0 &  ++x : x = 1
+A: (senior && class) || slow : eligible=300, slow calls=750
+B: slow || (senior && class) : eligible=300, slow calls=1000
+C: (senior & class) | slow   : eligible=300, slow calls=1000
+D: nested if                 : eligible=300, slow calls=750
+
+
+
+QUESTION-3
+
+#include <stdio.h>
+
+enum { LIGHT = 0, FAN = 1, AC = 2, HEATER = 3, PUMP = 4 };
+
+unsigned char switch_on(unsigned char reg, int dev)
+{
+    return reg | (1u << dev);
+}
+
+unsigned char switch_off(unsigned char reg, int dev)
+{
+    return reg & ~(1u << dev);
+}
+
+unsigned char toggle(unsigned char reg, int dev)
+{
+    return reg ^ (1u << dev);
+}
+
+int is_on(unsigned char reg, int dev)
+{
+    return (reg >> dev) & 1u;
+}
+
+int count_on(unsigned char reg)
+{
+    int c = 0;
+    while (reg) { reg &= reg - 1; c++; }
+    return c;
+}
+
+void show(unsigned char reg)
+{
+    for (int bit = 7; bit >= 0; bit--)
+        putchar(((reg >> bit) & 1u) ? '1' : '0');
+    putchar('\n');
+}
+
+int main(void)
+{
+    unsigned char reg = 0;
+    reg = switch_on(reg, LIGHT);
+    reg = switch_on(reg, AC);
+    show(reg);
+    reg = toggle(reg, FAN);
+    reg = switch_off(reg, LIGHT);
+    show(reg);
+    printf("AC is %s, PUMP is %s\n",
+           is_on(reg, AC) ? "ON" : "OFF",
+           is_on(reg, PUMP) ? "ON" : "OFF");
+    printf("Devices ON = %d\n", count_on(reg));
+
+    unsigned char r = 0x14;
+    int dev = 2;
+    printf("reg & 1 << dev   = %d\n", r & 1 << dev);
+    printf("(reg & 1) << dev = %d\n", (r & 1) << dev);
+
+    signed char s = (signed char)0x80;
+    printf("signed char bit7: s>>7 = %d\n", s >> 7);
+    return 0;
+}
+
+
+
+OUTPUT
+00000101
+00000110
+AC is ON, PUMP is OFF
+Devices ON = 2
+reg & 1 << dev   = 4
+(reg & 1) << dev = 0
+signed char bit7: s>>7 = -1
+
