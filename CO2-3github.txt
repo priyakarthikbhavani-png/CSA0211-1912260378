@@ -1,0 +1,103 @@
+
+
+QUESTION-7
+
+
+#include <stdio.h>
+
+unsigned long long checks = 0;   /* number of divisions (n % d) done by the last call */
+
+/* ORIGINAL (Q5): try every i = 2, 3, 4, ... while i*i <= n */
+int is_prime_v1(unsigned long long n)
+{
+    checks = 0;
+    if (n < 2) return 0;
+    for (unsigned long long i = 2; i * i <= n; i++) {
+        checks++;
+        if (n % i == 0) return 0;
+    }
+    return 1;
+}
+
+/* REDESIGN: test 2 and 3 once, then only the candidates 6k-1 and 6k+1 */
+int is_prime_v2(unsigned long long n)
+{
+    checks = 0;
+    if (n < 2) return 0;
+    if (n < 4) return 1;                      /* 2 and 3 are prime */
+    checks++; if (n % 2 == 0) return 0;
+    checks++; if (n % 3 == 0) return 0;
+    for (unsigned long long i = 5; i * i <= n; i += 6) {
+        checks++; if (n % i == 0) return 0;         /* 6k - 1 */
+        checks++; if (n % (i + 2) == 0) return 0;   /* 6k + 1 */
+    }
+    return 1;
+}
+
+int main(void)
+{
+    unsigned long long t[] = {97, 100, 7919, 1000003ULL,
+                              2147483647ULL, 1000000000039ULL};
+    int cnt = sizeof t / sizeof t[0];
+
+    printf("%15s %-9s %12s %12s %10s %10s\n",
+           "n", "result", "original", "redesign", "saved %", "predicted");
+    for (int k = 0; k < cnt; k++) {
+        int a = is_prime_v1(t[k]); unsigned long long c1 = checks;
+        int b = is_prime_v2(t[k]); unsigned long long c2 = checks;
+        unsigned long long pred = (a ? c1 / 3 + 2 : c1);
+        printf("%15llu %-9s %12llu %12llu %9.1f%% %10llu%s\n", t[k],
+               a ? "prime" : "not prime", c1, c2, 100.0 * (c1 - c2) / c1, pred,
+               a != b ? "  MISMATCH" : "");
+    }
+
+    /* correctness + total work for every n from 0 to 200000 */
+    unsigned long long tot1 = 0, tot2 = 0, mismatches = 0, primes = 0;
+    for (unsigned long long n = 0; n <= 200000; n++) {
+        int a = is_prime_v1(n); tot1 += checks;
+        int b = is_prime_v2(n); tot2 += checks;
+        if (a != b) mismatches++;
+        primes += a;
+    }
+    printf("\nSweep n = 0..200000: primes found = %llu, mismatches = %llu\n",
+           primes, mismatches);
+    printf("Total divisions: original = %llu, redesign = %llu (%.1f%% fewer)\n",
+           tot1, tot2, 100.0 * (tot1 - tot2) / tot1);
+
+    /* the cases where the redesign does NOT help: small numbers */
+    printf("\nSmall composite/prime cases:\n");
+    unsigned long long s[] = {2, 3, 4, 9, 25, 49, 100};
+    for (int k = 0; k < 7; k++) {
+        int a = is_prime_v1(s[k]); unsigned long long c1 = checks;
+        is_prime_v2(s[k]); unsigned long long c2 = checks;
+        printf("n=%3llu %-9s original=%llu redesign=%llu\n",
+               s[k], a ? "prime" : "not prime", c1, c2);
+    }
+    return 0;
+}
+
+
+
+
+
+OUTPUT
+
+              n result        original     redesign    saved %  predicted
+             97 prime                8            4      50.0%          4
+            100 not prime            1            1       0.0%          1
+           7919 prime               87           30      65.5%         31
+        1000003 prime              999          334      66.6%        335
+     2147483647 prime            46339        15448      66.7%      15448
+  1000000000039 prime           999999       333334      66.7%     333335
+
+Sweep n = 0..200000: primes found = 17984, mismatches = 0
+Total divisions: original = 7167463, redesign = 2620937 (63.4% fewer)
+
+Small composite/prime cases:
+n=  2 prime     original=0 redesign=0
+n=  3 prime     original=0 redesign=0
+n=  4 not prime original=1 redesign=1
+n=  9 not prime original=2 redesign=2
+n= 25 not prime original=4 redesign=3
+n= 49 not prime original=6 redesign=4
+n=100 not prime original=1 redesign=1
