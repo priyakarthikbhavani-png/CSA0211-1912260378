@@ -1,0 +1,356 @@
+QUESTION-4
+
+#include <stdio.h>
+
+/* Grade rules: 90-100 S, 80-89 A, 70-79 B, 60-69 C, 50-59 D, below 50 F, invalid '?' */
+
+char grade_switch(int marks)
+{
+    if (marks < 0 || marks > 100) return '?';
+    switch (marks / 10) {
+        case 10:
+        case 9:  return 'S';
+        case 8:  return 'A';
+        case 7:  return 'B';
+        case 6:  return 'C';
+        case 5:  return 'D';
+        default: return 'F';      /* 0..49 */
+    }
+}
+
+char grade_ladder(int marks)
+{
+    if (marks < 0 || marks > 100) return '?';
+    else if (marks >= 90) return 'S';
+    else if (marks >= 80) return 'A';
+    else if (marks >= 70) return 'B';
+    else if (marks >= 60) return 'C';
+    else if (marks >= 50) return 'D';
+    else return 'F';
+}
+
+/* Deliberately broken: break missing in case 8 (fall-through) */
+char grade_broken(int marks)
+{
+    char g = '?';
+    if (marks < 0 || marks > 100) return '?';
+    switch (marks / 10) {
+        case 10:
+        case 9:  g = 'S'; break;
+        case 8:  g = 'A';            /* missing break -> falls into case 7 */
+        case 7:  g = 'B'; break;
+        case 6:  g = 'C'; break;
+        case 5:  g = 'D'; break;
+        default: g = 'F';
+    }
+    return g;
+}
+
+/* Scholarship: lookup table [grade row][income band column] */
+const char *scholarship(char g, int income)
+{
+    static const char *table[6][3] = {      /* income band: <2.5L, 2.5-5L, >5L */
+        {"100% fee waiver", "75% fee waiver", "50% fee waiver"},   /* S */
+        {"75% fee waiver",  "50% fee waiver", "25% fee waiver"},   /* A */
+        {"50% fee waiver",  "25% fee waiver", "None"},             /* B */
+        {"25% fee waiver",  "None",           "None"},             /* C */
+        {"None",            "None",           "None"},             /* D */
+        {"None",            "None",           "None"}              /* F */
+    };
+    const char *letters = "SABCDF";
+    int row = -1, band = income < 250000 ? 0 : (income <= 500000 ? 1 : 2);
+    for (int i = 0; i < 6; i++) if (letters[i] == g) row = i;
+    return row < 0 ? "Invalid marks" : table[row][band];
+}
+
+int main(void)
+{
+    int marks[] = {100, 95, 83, 50, 49, -5};
+    for (int i = 0; i < 6; i++) printf("%d:%c ", marks[i], grade_switch(marks[i]));
+    printf("\n\n");
+
+    int test[] = {-1, 0, 49, 50, 59, 60, 69, 70, 79, 80, 89, 90, 99, 100, 101};
+    int n = sizeof test / sizeof test[0];
+    printf("marks  ladder switch  match\n");
+    for (int i = 0; i < n; i++) {
+        char a = grade_ladder(test[i]), b = grade_switch(test[i]);
+        printf("%4d     %c      %c     %s\n", test[i], a, b, a == b ? "yes" : "NO");
+    }
+
+    printf("\nMissing break in case 8 (broken version):\n");
+    int bt[] = {83, 89, 80, 75};
+    for (int i = 0; i < 4; i++)
+        printf("%d: correct=%c broken=%c\n", bt[i], grade_switch(bt[i]), grade_broken(bt[i]));
+
+    printf("\nScholarship (lookup table):\n");
+    printf("marks 95, income 200000 -> %s\n", scholarship(grade_switch(95), 200000));
+    printf("marks 83, income 400000 -> %s\n", scholarship(grade_switch(83), 400000));
+    printf("marks 72, income 600000 -> %s\n", scholarship(grade_switch(72), 600000));
+    printf("marks 101, income 100000 -> %s\n", scholarship(grade_switch(101), 100000));
+    return 0;
+}
+
+
+OUTPUT
+100:S 95:S 83:A 50:D 49:F -5:? 
+
+marks  ladder switch  match
+  -1     ?      ?     yes
+   0     F      F     yes
+  49     F      F     yes
+  50     D      D     yes
+  59     D      D     yes
+  60     C      C     yes
+  69     C      C     yes
+  70     B      B     yes
+  79     B      B     yes
+  80     A      A     yes
+  89     A      A     yes
+  90     S      S     yes
+  99     S      S     yes
+ 100     S      S     yes
+ 101     ?      ?     yes
+
+Missing break in case 8 (broken version):
+83: correct=A broken=B
+89: correct=A broken=B
+80: correct=A broken=B
+75: correct=B broken=B
+
+Scholarship (lookup table):
+marks 95, income 200000 -> 100% fee waiver
+marks 83, income 400000 -> 50% fee waiver
+marks 72, income 600000 -> None
+marks 101, income 100000 -> Invalid marks
+
+
+
+
+QUESTION-5
+
+#include <stdio.h>
+
+unsigned long checks = 0; /* number of divisions performed by the last call */
+
+/* Returns 1 if n is prime, otherwise 0. (for loop, i*i <= n) */
+int is_prime(unsigned long n)
+{
+    checks = 0;
+    if (n < 2) return 0;
+    for (unsigned long i = 2; i * i <= n; i++) {
+        checks++;
+        if (n % i == 0) return 0;
+    }
+    return 1;
+}
+
+/* Original version: every divisor 2 .. n-1 */
+int is_prime_slow(unsigned long n)
+{
+    checks = 0;
+    if (n < 2) return 0;
+    for (unsigned long i = 2; i < n; i++) {
+        checks++;
+        if (n % i == 0) return 0;
+    }
+    return 1;
+}
+
+/* while version */
+int is_prime_while(unsigned long n)
+{
+    checks = 0;
+    if (n < 2) return 0;
+    unsigned long i = 2;
+    while (i * i <= n) {
+        checks++;
+        if (n % i == 0) return 0;
+        i++;
+    }
+    return 1;
+}
+
+/* do-while version: guard needed, body runs once before the test */
+int is_prime_dowhile(unsigned long n)
+{
+    checks = 0;
+    if (n < 2) return 0;
+    if (n < 4) return 1;            /* 2 and 3: skip the loop */
+    unsigned long i = 2;
+    do {
+        checks++;
+        if (n % i == 0) return 0;
+        i++;
+    } while (i * i <= n);
+    return 1;
+}
+
+/* do-while WITHOUT the guard, to show the bug */
+int is_prime_dowhile_noguard(unsigned long n)
+{
+    checks = 0;
+    if (n < 2) return 0;
+    unsigned long i = 2;
+    do {
+        checks++;
+        if (n % i == 0) return 0;
+        i++;
+    } while (i * i <= n);
+    return 1;
+}
+
+int main(void)
+{
+    unsigned long tickets[] = {97, 100, 7919, 1000003};
+
+    printf("--- i * i <= n (for loop) ---\n");
+    for (int k = 0; k < 4; k++) {
+        int p = is_prime(tickets[k]);
+        printf("%8lu %-9s divisions = %lu\n", tickets[k], p ? "prime" : "not prime", checks);
+    }
+
+    printf("\n--- i < n (original version) ---\n");
+    for (int k = 0; k < 4; k++) {
+        int p = is_prime_slow(tickets[k]);
+        printf("%8lu %-9s divisions = %lu\n", tickets[k], p ? "prime" : "not prime", checks);
+    }
+
+    printf("\n--- while / do-while versions ---\n");
+    for (int k = 0; k < 4; k++) {
+        int a = is_prime_while(tickets[k]);   unsigned long ca = checks;
+        int b = is_prime_dowhile(tickets[k]); unsigned long cb = checks;
+        printf("%8lu while: %d (%lu)  do-while: %d (%lu)\n", tickets[k], a, ca, b, cb);
+    }
+
+    printf("\n--- do-while without guard for n = 2 and 3 ---\n");
+    for (unsigned long n = 2; n <= 3; n++) {
+        int r = is_prime_dowhile_noguard(n);
+        printf("n=%lu -> %s, divisions = %lu\n", n, r ? "prime" : "not prime (WRONG)", checks);
+    }
+
+    printf("\n--- overflow of i * i ---\n");
+    unsigned int i32 = 65536u;
+    printf("32-bit: i = %u, i*i = %u\n", i32, i32 * i32);
+    unsigned int n32 = 4294967291u;       /* largest prime below 2^32 */
+    printf("is i*i <= n true for n=%u? %s (should be false)\n", n32, (i32 * i32 <= n32) ? "yes" : "no");
+    printf("Safe test: i <= n / i  -> %s\n", (i32 <= n32 / i32) ? "true" : "false");
+    return 0;
+}
+
+
+
+OUTPUT
+
+--- i * i <= n (for loop) ---
+      97 prime     divisions = 8
+     100 not prime divisions = 1
+    7919 prime     divisions = 87
+ 1000003 prime     divisions = 999
+
+--- i < n (original version) ---
+      97 prime     divisions = 95
+     100 not prime divisions = 1
+    7919 prime     divisions = 7917
+ 1000003 prime     divisions = 1000001
+
+--- while / do-while versions ---
+      97 while: 1 (8)  do-while: 1 (8)
+     100 while: 0 (1)  do-while: 0 (1)
+    7919 while: 1 (87)  do-while: 1 (87)
+ 1000003 while: 1 (999)  do-while: 1 (999)
+
+--- do-while without guard for n = 2 and 3 ---
+n=2 -> not prime (WRONG), divisions = 1
+n=3 -> prime, divisions = 1
+
+--- overflow of i * i ---
+32-bit: i = 65536, i*i = 0
+is i*i <= n true for n=4294967291? yes (should be false)
+Safe test: i <= n / i  -> false
+
+
+
+QUESTION-6
+
+#include <stdio.h>
+#include <math.h>
+
+#define LIMIT 360
+
+/* returns months taken; prints schedule if show != 0; -1 if limit reached */
+int repay(double P, double rate, double E, int show, double *tot_int)
+{
+    double balance = P, total_interest = 0.0;
+    int month = 0;
+    if (show) printf("Month  Opening   Interest  Payment   Closing\n");
+    while (balance > 0.005) {                  /* never test balance != 0 */
+        if (month == LIMIT) { *tot_int = total_interest; return -1; }
+        double opening  = balance;
+        double interest = balance * rate;
+        balance += interest;
+        double pay = (E < balance) ? E : balance;   /* last month: pay only what is left */
+        balance -= pay;
+        total_interest += interest;
+        month++;
+        if (show) printf("%5d %9.2f %9.2f %9.2f %9.2f\n", month, opening, interest, pay, balance);
+    }
+    *tot_int = total_interest;
+    return month;
+}
+
+int main(void)
+{
+    double P = 10000.0, r = 0.02, ti;
+
+    printf("=== Loan Rs 10000, 2%% per month, repayment Rs 2000 ===\n");
+    int m = repay(P, r, 2000.0, 1, &ti);
+    printf("Months = %d, total interest = Rs %.2f\n", m, ti);
+
+    printf("\n=== Growth investigation (interest in month 1 = Rs %.2f) ===\n", P * r);
+    double E[] = {5000, 2000, 1000, 500, 300, 250, 210, 201, 200, 150};
+    printf("Repayment  Months  TotalInterest  Formula n\n");
+    for (int i = 0; i < 10; i++) {
+        int mm = repay(P, r, E[i], 0, &ti);
+        double f = (E[i] > P * r) ? -log(1 - r * P / E[i]) / log(1 + r) : -1;
+        if (mm < 0) {
+            if (f < 0) printf("%9.0f  limit %d reached (%.2f interest)   never repaid\n", E[i], LIMIT, ti);
+            else       printf("%9.0f  limit %d reached                  %.2f\n", E[i], LIMIT, f);
+        } else printf("%9.0f  %6d  %13.2f  %9.2f\n", E[i], mm, ti, f);
+    }
+
+    printf("\n=== Safety limit message ===\n");
+    m = repay(P, r, 150.0, 0, &ti);
+    if (m < 0)
+        printf("Loan NOT repaid within %d months. Repayment Rs 150 is less than monthly interest Rs %.2f.\n",
+               LIMIT, P * r);
+    return 0;
+}
+
+
+OUTPUT
+
+=== Loan Rs 10000, 2% per month, repayment Rs 2000 ===
+Month  Opening   Interest  Payment   Closing
+    1  10000.00    200.00   2000.00   8200.00
+    2   8200.00    164.00   2000.00   6364.00
+    3   6364.00    127.28   2000.00   4491.28
+    4   4491.28     89.83   2000.00   2581.11
+    5   2581.11     51.62   2000.00    632.73
+    6    632.73     12.65    645.38      0.00
+Months = 6, total interest = Rs 645.38
+
+=== Growth investigation (interest in month 1 = Rs 200.00) ===
+Repayment  Months  TotalInterest  Formula n
+     5000       3         310.08       2.06
+     2000       6         645.38       5.32
+     1000      12        1270.33      11.27
+      500      26        2898.73      25.80
+      300      56        6644.17      55.48
+      250      82       10318.98      81.27
+      210     154       22286.50     153.74
+      201     268       43829.75     267.81
+      200  limit 360 reached (72000.00 interest)   never repaid
+      150  limit 360 reached (3170402.82 interest)   never repaid
+
+=== Safety limit message ===
+Loan NOT repaid within 360 months. Repayment Rs 150 is less than monthly interest Rs 200.00.
